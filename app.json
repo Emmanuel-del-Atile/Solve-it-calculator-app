@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Solve it",
+    "slug": "solve-it",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#E65C00"
+      },
+      "package": "com.kweku_e.solveit"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3fc00eb7-3bc6-4131-9ed3-c3d05acb1741"
+      }
+    },
+    "owner": "kweku_e"
+  }
+}
