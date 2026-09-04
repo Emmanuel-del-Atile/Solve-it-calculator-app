@@ -43,7 +43,7 @@ const heightLimit =
 
 // The smaller limit wins
 const buttonSize =
-  Math.min(widthLimit, heightLimit) * 0.75;
+  Math.min(widthLimit, heightLimit)* 0.75;
 
     const handleDecimal = () => {
   // Split the display by any operator to find the current "in-progress" number
@@ -57,53 +57,112 @@ const buttonSize =
 } 
  
   const handlePress =() =>{
-     //ADDITION
-    if(display.includes("+")){
-       const parts = display.split("+");
 
-       let result = 0;
+    // =========================
+    // 1. PARSER
+    // =========================
 
-        for(let i = 0; i < parts.length; i++){
-          result = result + Number(parts[i]);
+    const numbers = [];
+    const operators = [];
+    let tempStore = "";
+
+    for (let i = 0; i < display.length; i++) {
+
+        if (
+            display[i] === "+" ||
+            display[i] === "−" ||
+            display[i] === "×" ||
+            display[i] === "÷"
+        ) {
+            numbers.push(tempStore);
+            operators.push(display[i]);
+            tempStore = "";
+
+        } else {
+            tempStore += display[i];
         }
-  
-        setDisplay(result.toString());
-      } //SUBTRACTION
-      else if(display.includes("−")){
+    }
 
-          const parts = display.split("−");
-          let result = Number(parts[0]);
+    // Add the final number
+    numbers.push(tempStore);
 
-          for(let i = 1; i < parts.length; i++){
-            result = result - Number(parts[i]);
-          }
-           setDisplay(result.toString());
-    }//MULTIPLICATION
-    else if(display.includes("×")){
 
-          const parts = display.split("×");
+    // =========================
+    // 2. FIRST PASS
+    //    × and ÷
+    // =========================
 
-          let result = 1;
+    let i = 0;
 
-          for(let i = 0; i < parts.length; i++){
-            result = result * Number(parts[i]);
-          }
+    while (i < operators.length) {
 
-           setDisplay(result.toString());
-      
-    }//DIVISION
-    else if(display.includes("÷")){
+        let result;
 
-          const parts = display.split("÷");
+        if (
+            operators[i] === "×" ||
+            operators[i] === "÷"
+        ) {
 
-          let result = Number(parts[0]); 
+            if (operators[i] === "×") {
 
-          for(let i = 1; i < parts.length; i++){
-            result = result / Number(parts[i]);
-          }
-           setDisplay(result.toString());
-      
-    } 
+                result =
+                    Number(numbers[i]) *
+                    Number(numbers[i + 1]);
+
+            } else {
+
+                result =
+                    Number(numbers[i]) /
+                    Number(numbers[i + 1]);
+            }
+
+            // Replace the two numbers
+            // with the result
+            numbers.splice(i, 2, result);
+
+            // Remove the handled operator
+            operators.splice(i, 1);
+
+            // DON'T increase i
+            // The next operator has moved into i
+
+        } else {
+
+            // Skip + and − for now
+            i++;
+        }
+    }
+
+
+    // 3. SECOND PASS
+    // + and −
+
+    i = 0;
+
+    while (i < operators.length) {
+
+        let result;
+
+        if (operators[i] === "+") {
+
+            result =
+                Number(numbers[i]) +
+                Number(numbers[i + 1]);
+
+        } else {
+
+            result =
+                Number(numbers[i]) -
+                Number(numbers[i + 1]);
+        }
+
+        numbers.splice(i, 2, result);
+        operators.splice(i, 1);
+    }
+
+    // 4. FINAL ANSWER
+    setDisplay(String(numbers[0]));
+    
   };
 
 
@@ -394,9 +453,7 @@ function Monitor({display}){
 
   const {width, height} = useWindowDimensions();
   const isLandscape = width > height;
-  const monitorHeight = isLandscape 
-  ? height * 0.20
-  : height * 0.15;
+  const monitorHeight = height * 0.12;
   return(
     <View style ={[styles.monitor, {minHeight: monitorHeight }]}>
       <Text style ={styles.displayText}
