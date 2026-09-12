@@ -1,16 +1,30 @@
 import { db, auth } from "./firebase";
-import { collection,
+import { 
+    collection,
     addDoc,
     query, 
     where,
     getDocs,
     doc,
     updateDoc,
-    deleteDoc
+    deleteDoc,
+    serverTimestamp
     } from "firebase/firestore/lite";
+
+
 // CREATING NOTES
-export async function createNote() {
+export async function createNote(title: string, content: string) {
   try {
+    if(!title.trim()){
+      console.log("Title is required");
+      return null;
+    }
+
+    if(!content.trim()){
+      console.log("Content is required")
+      return null;
+    }
+
     const user = auth.currentUser;
 
     if (!user) {
@@ -21,8 +35,10 @@ export async function createNote() {
     const notesCollection = collection(db, "notes");
 
     const note = {
-      title: "Learn Firebase",
+      title: title.trim(),
+      content: content.trim(),
       ownerId: user.uid,
+      createdAt: serverTimestamp()
     };
 
     const docRef = await addDoc(notesCollection, note);
@@ -74,17 +90,22 @@ export async function getMyNotes() {
 }
 
 // UPDATING NOTES
-export async function updateNote(noteId: string) {
+export async function updateNote(noteId: string, title: string, content:string) {
   try {
     const noteRef = doc(db, "notes", noteId);
 
     await updateDoc(noteRef, {
-      title: "Master Firebase",
+      title: title.trim(),
+      content: content.trim(),
+      updatedAt: serverTimestamp()
     });
 
     console.log("Note updated:", noteId);
+
+    return true;
   } catch (error) {
     console.error("Update error:", error);
+    return false;
   }
 }
 

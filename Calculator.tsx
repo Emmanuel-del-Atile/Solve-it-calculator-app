@@ -7,10 +7,12 @@ import {Text,
     } from "react-native";
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useState } from "react";
-import { useDeviceOrientation } from "@react-native-community/hooks"; 
+import { useDeviceOrientation } from "@react-native-community/hooks";
 
+import { NativeStackScreenProps } from "@react-navigation/native-stack"; 
+type Props = NativeStackScreenProps<any>;
 
-function keyPads({navigation}) {
+function keyPads({navigation}:Props) {
 
   const { width, height } = useWindowDimensions();
 

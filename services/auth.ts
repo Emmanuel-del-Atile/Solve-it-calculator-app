@@ -1,12 +1,19 @@
-import { createUserWithEmailAndPassword, signOut, signInWithEmailAndPassword } from "firebase/auth";
+import { 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  signInWithEmailAndPassword ,
+  sendPasswordResetEmail
+} from "firebase/auth";
 import { auth } from "./firebase";
 
-export async function registerUser() {
+
+// Register function
+export async function registerUser(email: string, password: string) {
   try {
     const userCredential = await createUserWithEmailAndPassword(
       auth,
-      "boss@test.com",
-      "password123"
+      email,
+      password
     );
 
     const user = userCredential.user;
@@ -22,7 +29,7 @@ export async function registerUser() {
   }
 }
 
-// Function to log in the user
+//login function
 export async function loginUser(
   email: string,
   password: string
@@ -48,12 +55,29 @@ export async function loginUser(
   }
 }
 
-// Function to sign out the user
+// logout function
 export async function logOutUser() {
   try {
     await signOut(auth);
     console.log("User signed out!");
+    navigation.navigate("login");
+
   } catch (error) {
     console.error("Sign out error:", error);
+  }
+}
+
+//Password Reset function
+export async function resetPassword(email: string) {
+  try {
+    await sendPasswordResetEmail(auth, email);
+
+    console.log("Password reset email sent!");
+
+    return true;
+  } catch (error) {
+    console.error("Password reset error:", error);
+
+    return false;
   }
 }

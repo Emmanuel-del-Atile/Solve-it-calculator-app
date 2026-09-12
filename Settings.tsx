@@ -1,22 +1,51 @@
-import {View, Text, Pressable} from 'react-native';
+import {View, Text, Pressable, StyleSheet} from 'react-native';
+import { logOutUser } from "./services/auth";
 
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 type Props = NativeStackScreenProps<any>;
-export default function Settings({navigation}: Props) {
-    return(
-        <View>
-            <Text> This is my Settings</Text>
+
+
+export default function Settings() {
+
+    return (
+        <View style={styles.container}>
+
+            <Text style={styles.title}>Settings</Text>
+
             <Pressable
-                onPress={() => navigation.navigate("calculator")}>
-                <Text>Go to Calculator</Text>
-            </Pressable> 
+                style={styles.signOutButton}
+                onPress={logOutUser}
+            >
+                <Text style={styles.signOutText}>
+                    Sign Out
+                </Text>
+            </Pressable>
 
-
-
-
-            <Pressable onPress={() => navigation.navigate("home")}>
-                <Text>Go to Home</Text>
-            </Pressable>   
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        padding: 20,
+    },
+
+    title: {
+        fontSize: 24,
+        fontWeight: "bold",
+        marginBottom: 30,
+    },
+
+    signOutButton: {
+        padding: 15,
+        borderRadius: 8,
+        backgroundColor: "red",
+    },
+
+    signOutText: {
+        color: "white",
+        fontWeight: "bold",
+        textAlign: "center",
+    },
+});

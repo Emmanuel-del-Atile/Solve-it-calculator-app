@@ -1,43 +1,34 @@
-import { Pressable, Text } from "react-native";
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
-import Calculator from "./Calculator";
-import Settings from "./Settings";
-import Home from "./Home";
-import Login from "./Login";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "./services/firebase";
 
-const Stack = createNativeStackNavigator();
+import AuthNavigator from "./AuthNavigator";
+import AppNavigator from "./AppNavigator";
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  if (loading) {
+    return <Text>Loading...</Text>;
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator>
-
-        <Stack.Screen
-          name="login"
-          component={Login}
-          options={{
-            headerShown: false,
-          }}
-        />
-
-        <Stack.Screen
-          name="home"
-          component={Home}
-        />
-
-        <Stack.Screen
-          name="Settings"
-          component={Settings}
-        />
-
-        <Stack.Screen
-          name="calculator"
-          component={Calculator}
-        />
-
-      </Stack.Navigator>
+      {user ? <AppNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );
 }
