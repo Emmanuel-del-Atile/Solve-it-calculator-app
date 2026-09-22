@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Solve it",
+    "name": "Notely",
     "slug": "solve-it",
     "version": "1.0.0",
     "orientation": "default",
@@ -20,7 +20,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#E65C00"
       },
-      "package": "com.kweku_e.solveit"
+      "package": "com.kweku_e.notely"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -60,7 +60,6 @@ export async function logOutUser() {
   try {
     await signOut(auth);
     console.log("User signed out!");
-    navigation.navigate("login");
 
   } catch (error) {
     console.error("Sign out error:", error);

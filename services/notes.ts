@@ -1,4 +1,5 @@
 import { db, auth } from "./firebase";
+import {Note} from "../types/note";
 import { 
     collection,
     addDoc,
@@ -56,37 +57,36 @@ export async function createNote(title: string, content: string) {
 }
 
 // READING NOTES
-export async function getMyNotes() {
-  try {
-    const user = auth.currentUser;
+export async function getMyNotes(): Promise<Note[]> {
+  const user = auth.currentUser;
 
-    if (!user) {
-      console.log("No user is signed in");
-      return [];
-    }
-
-    const notesCollection = collection(db, "notes");
-
-    const q = query(
-      notesCollection,
-      where("ownerId", "==", user.uid)
-    );
-
-    const snapshot = await getDocs(q);
-
-    const notes = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    console.log("My notes:", notes);
-
-    return notes;
-
-  } catch (error) {
-    console.error("Read error:", error);
-    return [];
+  if (!user) {
+    throw new Error("User is not authenticated");
   }
+
+  const notesCollection = collection(db, "notes");
+
+  const q = query(
+    notesCollection,
+    where("ownerId", "==", user.uid)
+  );
+
+  const snapshot = await getDocs(q);
+
+  const notes: Note[] = snapshot.docs.map((doc) => {
+    const data = doc.data();
+
+    return {
+      id: doc.id,
+      title: data.title ?? "",
+      content: data.content ?? "",
+      ownerId: data.ownerId,
+      createdAt: data.createdAt?.toDate() ?? null,
+      updatedAt: data.updatedAt?.toDate() ?? null,
+    };
+  });
+
+  return notes;
 }
 
 // UPDATING NOTES

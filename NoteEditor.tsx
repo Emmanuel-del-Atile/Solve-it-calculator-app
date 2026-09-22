@@ -4,6 +4,9 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
 
 import { useState } from "react";
@@ -13,10 +16,20 @@ import {
   updateNote,
 } from "./services/notes";
 
-export default function NoteEditor({ navigation, route }: any) {
+import {
+  colors,
+  typography,
+  spacing,
+} from "./theme";
 
+import { validateNote } from "./utils/validation";
+
+export default function NoteEditor({
+  navigation,
+  route,
+}: any) {
   const { note } = route.params || {};
-
+  const [isSaving, setIsSaving] = useState(false);
   const [title, setTitle] = useState(
     note?.title || ""
   );
@@ -25,121 +38,223 @@ export default function NoteEditor({ navigation, route }: any) {
     note?.content || ""
   );
 
+  const [error, setError] = useState("");
+
   async function handleSave() {
+    if (isSaving) return;
 
-    if (!title.trim()) {
-      console.log("Title is required");
+    setError("");
+
+    const validationError = validateNote(title, content);
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
-    if (!content.trim()) {
-      console.log("Content is required");
-      return;
-    }
+    try {
+      setIsSaving(true);
 
-    // EDIT
-    if (note) {
-
-      const success = await updateNote(
-        note.id,
-        title,
-        content
-      );
-
-      if (success) {
-        console.log("Note updated!");
-        navigation.goBack();
+      if (note) {
+        await updateNote(note.id, title, content);
+      } else {
+        await createNote(title, content);
       }
 
-      return;
-    }
-
-    // CREATE
-    const newNote = await createNote(
-      title,
-      content
-    );
-
-    if (newNote) {
-      console.log("Note created!");
       navigation.goBack();
+    } catch (error) {
+      setError("Failed to save note. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
   }
-
   return (
-    <View style={styles.container}>
-
-      <Text style={styles.heading}>
-        {note ? "Edit Note" : "New Note"}
-      </Text>
-
-      <TextInput
-        style={styles.titleInput}
-        placeholder="Title"
-        value={title}
-        onChangeText={setTitle}
-      />
-
-      <TextInput
-        style={styles.contentInput}
-        placeholder="Write your note..."
-        value={content}
-        onChangeText={setContent}
-        multiline
-      />
-
-      <Pressable
-        style={styles.saveButton}
-        onPress={handleSave}
+    <KeyboardAvoidingView
+      style={styles.keyboard}
+      behavior={
+        Platform.OS === "ios"
+          ? "padding"
+          : undefined
+      }
+    >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.saveText}>
-          Save
-        </Text>
-      </Pressable>
 
-    </View>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.brand}>
+              Notely
+            </Text>
+
+            <Text style={styles.mode}>
+              {note
+                ? "Edit your note"
+                : "Capture a new thought"}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.label}>
+          Title
+        </Text>
+
+        <TextInput
+          style={styles.titleInput}
+          placeholder="Give your note a title"
+          placeholderTextColor={colors.mutedText}
+          value={title}
+          onChangeText={setTitle}
+          maxLength={100}
+        />
+
+        <Text style={styles.label}>
+          Note
+        </Text>
+
+        <TextInput
+          style={styles.contentInput}
+          placeholder="Start writing..."
+          placeholderTextColor={colors.mutedText}
+          value={content}
+          onChangeText={setContent}
+          multiline
+          textAlignVertical="top"
+        />
+
+        {error !== "" && (
+          <Text style={styles.error}>
+            {error}
+          </Text>
+        )}
+
+        <Pressable
+          style={[
+            styles.saveButton,
+            isSaving && styles.disabledButton,
+          ]}
+          onPress={handleSave}
+          disabled={isSaving}
+        >
+          <Text style={styles.saveText}>
+            {isSaving
+              ? "Saving..."
+              : note
+                ? "Save Changes"
+                : "Save Note"}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.cancelButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.cancelText}>
+            Cancel
+          </Text>
+        </Pressable>
+
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-
-  container: {
+  keyboard: {
     flex: 1,
-    padding: 20,
+    backgroundColor: colors.background,
   },
 
-  heading: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
+  scroll: {
+    flex: 1,
+  },
+
+  container: {
+    padding: spacing.xxl,
+    paddingBottom: spacing.huge,
+  },
+
+  header: {
+    marginBottom: spacing.xxxl,
+  },
+
+  brand: {
+    fontSize: typography.title,
+    fontWeight: typography.bold,
+    color: colors.text,
+  },
+
+  mode: {
+    color: colors.secondaryText,
+    fontSize: typography.bodySmall,
+    marginTop: spacing.xs,
+  },
+
+  label: {
+    color: colors.text,
+    fontSize: typography.bodySmall,
+    fontWeight: typography.semibold,
+    marginBottom: spacing.sm,
+    marginTop: spacing.lg,
   },
 
   titleInput: {
+    height: 56,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    padding: 12,
-    marginBottom: 15,
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: spacing.lg,
+    fontSize: typography.subheading,
+    fontWeight: typography.semibold,
+    color: colors.text,
   },
 
   contentInput: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    padding: 12,
-    height: 200,
-    borderRadius: 8,
-    textAlignVertical: "top",
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: spacing.lg,
+    minHeight: 260,
+    fontSize: typography.body,
+    lineHeight: 24,
+    color: colors.text,
+  },
+
+  error: {
+    color: colors.danger,
+    fontSize: typography.bodySmall,
+    marginTop: spacing.md,
   },
 
   saveButton: {
-    backgroundColor: "lightblue",
-    padding: 15,
-    marginTop: 20,
-    borderRadius: 8,
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    justifyContent: "center",
     alignItems: "center",
+    marginTop: spacing.xxl,
+  },
+  disabledButton:{
+    opacity: 0.5
   },
 
   saveText: {
-    fontWeight: "bold",
-    fontSize: 16,
+    color: colors.white,
+    fontSize: typography.body,
+    fontWeight: typography.bold,
   },
 
+  cancelButton: {
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+
+  cancelText: {
+    color: colors.secondaryText,
+    fontWeight: typography.semibold,
+  },
 });

@@ -6,6 +6,7 @@ import {
   ScrollView,
   SafeAreaView,
   TextInput,
+  Alert,
 } from "react-native";
 
 import {
@@ -16,68 +17,68 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { useState, useCallback } from "react";
 
+import type { Note } from "./types/note";
+import { formatDate } from "./utils/date";
+import { searchNotes } from "./utils/noteHelper";
+
+import {
+  colors,
+  typography,
+  spacing,
+} from "./theme";
+
+type ScreenStatus = "idle" | "loading" | "success" | "error";
+
 export default function Home({ navigation }: any) {
-  const [notes, setNotes] = useState<any[]>([]);
-  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [showAll, setShowAll] = useState(false);
   const [searchText, setSearchText] = useState("");
 
-  // Load notes whenever Home becomes active
+  const [status, setStatus] = useState<ScreenStatus>("loading");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   useFocusEffect(
     useCallback(() => {
-      if (showNotes) {
-        loadNotes();
-      }
-    }, [showNotes])
+      loadNotes();
+    }, [])
   );
 
-  // Format Firestore timestamp
-  function formatDate(timestamp: any) {
-    if (!timestamp) return "Just now";
+  const sortedNotes = [...notes].sort((a, b) => {
+    const dateA = a.createdAt?.getTime() ?? 0;
+    const dateB = b.createdAt?.getTime() ?? 0;
 
-    const date = timestamp.toDate
-      ? timestamp.toDate()
-      : new Date(timestamp);
-
-    return date.toLocaleString();
-  }
-
-  // Decide which notes should be displayed
+    return dateB - dateA;
+  });
+  
+  const filteredNotes = searchNotes(notes, searchText);
   const displayedNotes =
     searchText.trim() === ""
-      ? [...notes]
-          .sort((a, b) => {
-            const dateA = a.createdAt?.toMillis?.() ?? 0;
-            const dateB = b.createdAt?.toMillis?.() ?? 0;
+      ? showAll
+        ? sortedNotes
+        : sortedNotes.slice(0, 5)
+      : filteredNotes;
 
-            return dateB - dateA;
-          })
-          .slice(0, 5)
-      : notes.filter(
-          (note) =>
-            note.title
-              .toLowerCase()
-              .includes(searchText.toLowerCase()) ||
-            note.content
-              .toLowerCase()
-              .includes(searchText.toLowerCase())
-        );
-
-  // Load notes from Firestore
   async function loadNotes() {
-    const data = await getMyNotes();
-    setNotes(data);
-  }
+    setStatus("loading");
+    setErrorMessage(null);
 
-  // Show / Hide notes
-  async function handleReadNotes() {
-    if (!showNotes) {
-      await loadNotes();
+    try {
+      const data = await getMyNotes();
+
+      setNotes(data);
+      setStatus("success");
+    } catch (error) {
+      console.error("Failed to load notes:", error);
+
+      setErrorMessage("Failed to load notes. Please try again.");
+      setStatus("error");
     }
-
-    setShowNotes((current) => !current);
   }
 
-  // Delete note
+  function handleShowAll() {
+    setShowAll((current) => !current);
+  }
+
   async function handleDelete(noteId: string) {
     const success = await deleteNote(noteId);
 
@@ -90,214 +91,483 @@ export default function Home({ navigation }: any) {
     }
   }
 
+const confirmDeleteNote = (note: Note) => {
+  Alert.alert(
+    "Delete Note",
+    "Are you sure you want to delete this note?",
+    [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteNote(note.id);
+
+            // Update the UI immediately
+            setNotes((currentNotes) =>
+              currentNotes.filter((item) => item.id !== note.id)
+            );
+          } catch (error) {
+            Alert.alert("Error", "Failed to delete note.");
+          }
+        },
+      },
+    ]
+  );
+};
+
+  if (status === "loading") {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>
+            Loading notes...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusText}>
+            {errorMessage}
+          </Text>
+
+          <Pressable
+            style={styles.retryButton}
+            onPress={loadNotes}
+          >
+            <Text style={styles.retryButtonText}>
+              Try Again
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
 
       {/* Header */}
-      <View style={styles.row}>
-
-        <Text style={styles.title}>
-          My Notes
-        </Text>
-
-        <Text style={styles.noteCount}>
-          Total Notes: {notes.length}
-        </Text>
-
-      </View>
-
-      {/* Search Box */}
-      <TextInput
-        style={styles.searchInput}
-        placeholder="🔍Search notes..."
-        value={searchText}
-        onChangeText={setSearchText}
-      />
-
-      {/* Note Actions */}
-      <View style={styles.row}>
-        <Pressable
-          style={styles.button}
-          onPress={handleReadNotes}
-        >
-          <Text>
-            {showNotes ? "Hide Notes" : "View Notes"}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.brand}>
+            Notely
           </Text>
-        </Pressable>
 
+          <Text style={styles.subtitle}>
+            Your notes, your space.
+          </Text>
+        </View>
+
+        <View style={styles.countBadge}>
+          <Text style={styles.countNumber}>
+            {notes.length}
+          </Text>
+
+          <Text style={styles.countLabel}>
+            notes
+          </Text>
+        </View>
       </View>
 
-      {/* Notes */}
-      {showNotes && (
-        <ScrollView>
+      {/* Search */}
+      <View style={styles.searchContainer}>
+        <Text style={styles.searchIcon}>
+          ⌕
+        </Text>
 
-          {displayedNotes.length === 0 ? (
-            <Text style={styles.noResults}>
-              No notes found
-              📝
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search your notes..."
+          placeholderTextColor={colors.mutedText}
+          value={searchText}
+          onChangeText={setSearchText}
+        />
+      </View>
+
+      {/* Section header */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>
+          {searchText.trim()
+            ? "Search results"
+            : "Recent notes"}
+        </Text>
+
+        {notes.length > 5 &&
+          searchText.trim() === "" && (
+            <Pressable
+              onPress={handleShowAll}
+            >
+              <Text style={styles.showText}>
+                {showAll
+                  ? "Show Less"
+                  : "Show All"}
+              </Text>
+            </Pressable>
+          )}
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.notesContainer}
+      >
+        {notes.length === 0 ? (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
+              <Text style={styles.emptyIconText}>
+                N
+              </Text>
+            </View>
+
+            <Text style={styles.emptyTitle}>
+              Nothing here yet
             </Text>
-          ) : (
-            displayedNotes.map((note) => (
 
-              <View
-                key={note.id}
-                style={styles.noteItem}
+            <Text style={styles.emptyMessage}>
+              Capture your first thought, idea or
+              reminder with Notely.
+            </Text>
+          </View>
+        ) : displayedNotes.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.searchEmptyIcon}>
+              ⌕
+            </Text>
+
+            <Text style={styles.emptyTitle}>
+              No notes found
+            </Text>
+
+            <Text style={styles.emptyMessage}>
+              Try searching for a different word.
+            </Text>
+          </View>
+        ) : (
+          displayedNotes.map((note) => (
+            <View
+              key={note.id}
+              style={styles.noteCard}
+            >
+              <Pressable
+                style={styles.noteContent}
+                onPress={() =>
+                  navigation.navigate(
+                    "NoteEditor",
+                    { note }
+                  )
+                }
               >
+                <View style={styles.noteTop}>
+                  <View style={styles.noteDot} />
 
-                {/* Tappable Note Content */}
-                <Pressable
-                  onPress={() =>
-                    navigation.navigate("NoteEditor", {
-                      note: note,
-                    })
-                  }
-                >
-
-                  {/* Note title */}
                   <Text
                     style={styles.noteTitle}
                     numberOfLines={1}
-                    ellipsizeMode="tail"
                   >
                     {note.title}
                   </Text>
+                </View>
 
-                  {/* Created / Updated date */}
-                  <Text style={styles.noteDate}>
-                    {note.updatedAt
-                      ? `Updated: ${formatDate(note.updatedAt)}`
-                      : `Created: ${formatDate(note.createdAt)}`
-                    }
-                  </Text>
-
-                </Pressable>
-
-                {/* Delete */}
-                <Pressable
-                  style={styles.deleteButton}
-                  onPress={() =>
-                    handleDelete(note.id)
-                  }
+                <Text
+                  style={styles.notePreview}
+                  numberOfLines={2}
                 >
-                  <Text style={styles.deleteButtonText}>
-                    Delete
-                  </Text>
-                </Pressable>
+                  {note.content}
+                </Text>
 
-              </View>
+                <Text style={styles.noteDate}>
+                  {note.updatedAt
+                    ? `Updated ${formatDate(note.updatedAt)}`
+                    : `Created ${formatDate(note.createdAt)}`}
+                </Text>
+              </Pressable>
 
-            ))
-          )}
+              <Pressable
+                style={styles.deleteButton}
+                onPress={() =>
+                  confirmDeleteNote(note)
+                }
+              >
+                <Text style={styles.deleteText}>
+                  Delete
+                </Text>
+              </Pressable>
+            </View>
+          ))
+        )}
+      </ScrollView>
 
-        </ScrollView>
-      )}
+      {/* Floating Action Button */}
+      <Pressable
+        style={styles.createButton}
+        onPress={() =>
+          navigation.navigate("NoteEditor")
+        }
+      >
+        <Text style={styles.createIcon}>
+          +
+        </Text>
+      </Pressable>
 
-        <Pressable
-          style={styles.createButton}
-          onPress={() =>
-            navigation.navigate("NoteEditor")
-          }
-        >
-          <Text style={styles.createButtonText}>
-            +
-          </Text>
-        </Pressable>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
-    margin: 10,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
   },
 
-  row: {
+  header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
   },
 
-  button: {
-    backgroundColor: "lightblue",
-    padding: 10,
-    margin: 10,
-    borderRadius: 5,
+  brand: {
+    fontSize: typography.title,
+    fontWeight: typography.bold,
+    color: colors.text,
   },
-  createButton:{
-    position: "absolute",
-    right: 20,
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 99,
-    backgroundColor: "lightgray",
+
+  subtitle: {
+    fontSize: typography.bodySmall,
+    color: colors.secondaryText,
+    marginTop: spacing.xs,
+  },
+
+  countBadge: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    alignItems: "center",
+  },
+
+  countNumber: {
+    fontSize: typography.heading,
+    fontWeight: typography.bold,
+    color: colors.primary,
+  },
+
+  countLabel: {
+    fontSize: typography.caption,
+    color: colors.primary,
+  },
+
+  searchContainer: {
+    height: 52,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xxl,
+  },
+
+  searchIcon: {
+    fontSize: 25,
+    color: colors.secondaryText,
+    marginRight: spacing.sm,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: typography.body,
+    color: colors.text,
+  },
+
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+
+  sectionTitle: {
+    fontSize: typography.subheading,
+    fontWeight: typography.bold,
+    color: colors.text,
+  },
+
+  showText: {
+    color: colors.primary,
+    fontSize: typography.bodySmall,
+    fontWeight: typography.semibold,
+  },
+
+  notesContainer: {
+    paddingBottom: 110,
+  },
+
+  statusContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 5
+    paddingHorizontal: spacing.lg,
   },
-  createButtonText:{
-   fontSize: 35,
-   fontWeight: "bold",
-   color: "blue"
+
+  statusText: {
+    fontSize: typography.body,
+    color: colors.text,
+    textAlign: "center",
+    marginBottom: spacing.md,
   },
-  searchInput: {
+
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 8,
+  },
+
+  retryButtonText: {
+    fontSize: typography.body,
+    color: colors.background,
+    fontWeight: "600",
+  },
+
+  noteCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: "gray",
-    borderRadius: 5,
-    padding: 10,
-    marginVertical: 10,
+    borderColor: colors.border,
   },
 
-  deleteButton: {
-    backgroundColor: "red",
-    padding: 8,
-    marginTop: 10,
-    borderRadius: 5,
-    alignSelf: "flex-end",
+  noteContent: {
+    flex: 1,
   },
 
-  deleteButtonText: {
-    color: "white",
-    fontWeight: "bold",
+  noteTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.sm,
   },
 
-  noteCount: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-
-  noteItem: {
-    backgroundColor: "lightgray",
-    padding: 10,
-    margin: 10,
-    borderRadius: 5,
+  noteDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    marginRight: spacing.sm,
   },
 
   noteTitle: {
-    fontSize: 17,
-    marginTop: 5,
-    marginBottom: 5,
-    fontWeight: "bold",
-    flexShrink: 1,
+    flex: 1,
+    fontSize: typography.subheading,
+    fontWeight: typography.semibold,
+    color: colors.text,
+  },
+
+  notePreview: {
+    fontSize: typography.bodySmall,
+    lineHeight: 20,
+    color: colors.secondaryText,
+    marginBottom: spacing.md,
   },
 
   noteDate: {
-    fontSize: 13,
-    color: "gray",
+    fontSize: typography.caption,
+    color: colors.mutedText,
   },
 
-  noResults: {
+  deleteButton: {
+    alignSelf: "flex-end",
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+
+  deleteText: {
+    color: colors.danger,
+    fontSize: typography.caption,
+    fontWeight: typography.semibold,
+  },
+
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xxxl,
+    marginTop: 80,
+  },
+
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 26,
+    backgroundColor: colors.primaryLight,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: spacing.xl,
+  },
+
+  emptyIconText: {
+    fontSize: 38,
+    fontWeight: typography.bold,
+    color: colors.primary,
+  },
+
+  searchEmptyIcon: {
+    fontSize: 54,
+    color: colors.mutedText,
+    marginBottom: spacing.lg,
+  },
+
+  emptyTitle: {
+    fontSize: typography.heading,
+    fontWeight: typography.bold,
+    color: colors.text,
     textAlign: "center",
-    marginTop: 30,
-    fontSize: 16,
+    marginBottom: spacing.sm,
   },
 
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 10,
+  emptyMessage: {
+    fontSize: typography.bodySmall,
+    lineHeight: 21,
+    color: colors.secondaryText,
+    textAlign: "center",
   },
 
+  createButton: {
+    position: "absolute",
+    right: spacing.xxl,
+    bottom: spacing.xxl,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+
+    elevation: 6,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+
+  createIcon: {
+    color: colors.white,
+    fontSize: 34,
+    fontWeight: typography.regular,
+    marginTop: -3,
+  },
 });
